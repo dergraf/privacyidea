@@ -89,7 +89,7 @@ class IdResolver (UserIdResolver):
         :rtype: string
         """
 
-        userinfo = self.getUserInfo(userId)
+        userinfo = self.getUserInfo(userid)
         return userinfo.get('username', "")
 
     def getUserId(self, username):
