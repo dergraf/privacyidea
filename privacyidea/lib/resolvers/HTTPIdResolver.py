@@ -4,36 +4,10 @@ __doc__ = """This is the resolver to find users using a HTTP webhook.
 
 import logging
 import requests
-import datetime
 
 from UserIdResolver import UserIdResolver
 
 log = logging.getLogger(__name__)
-
-class HTTPCache:
-    def __init__(self):
-        self.values = {}
-        self.timestamps = []
-
-    def insert(self, key, value):
-        now = datetime.datetime.now()
-        self.values[key] = value
-        self.timestamps.append((now, key))
-
-    def lookup(self, key, default=None):
-        return self.values.get(key, default)
-
-    def bust_expired(self, td):
-        now = datetime.datetime.now()
-        i = 0
-        for (ts, key) in self.timestamps:
-            if now - ts > td:
-                i = i + 1
-                del self.values[key]
-            else:
-                break
-        self.timestamps = self.timestamps[i:]
-
 
 class IdResolver (UserIdResolver):
 
@@ -45,8 +19,6 @@ class IdResolver (UserIdResolver):
 
     def __init__(self):
         self.resolver_id = ""
-        self.cache = HTTPCache()
-        self.cache_expiry = datetime.timedelta(seconds=10)
 
     def checkPass(self, user_id, password):
         return False
@@ -61,22 +33,18 @@ class IdResolver (UserIdResolver):
         :rtype: dict
         """
 
-        self.cache.bust_expired(self.cache_expiry)
-
         url = "%s/%s" % (self.url, userid_or_username)
 
-        userinfo = self.cache.lookup(url, {})
+        userinfo = {}
 
-        if userinfo:
-            r = requests.get(url, auth=(self.username, self.password))
-            if r.status_code == 200:
-                try:
-                    userinfo = r.json()
-                    self.cache.insert(url, userinfo)
-                except Exception as exx:
-                    log.error("Could not decode user info to json, got %s" % r.content)
-            else:
-                log.error("Could not fetch userinfo, status code %s" % r.status_code)
+        r = requests.get(url, auth=(self.username, self.password))
+        if r.status_code == 200:
+            try:
+                userinfo = r.json()
+            except Exception as exx:
+                log.error("Could not decode user info to json, got %s" % r.content)
+        else:
+            log.error("Could not fetch userinfo, status code %s" % r.status_code)
 
         return userinfo
 
